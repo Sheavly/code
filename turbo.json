@@ -1,10 +1,12 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   // The quality gate (`npm run check`), cached by inputs. Every workspace runs its own
-  // `typecheck`, `lint` and `test`; each depends on the same task in the workspaces it imports
-  // (`^`), so a change in a dependency reruns its dependents. The `//#` tasks are the root's:
-  // `scripts/`, `.cursor/hooks/` and root configs, plus the repo-wide checks. The gate reads
-  // source (the `@sheavly/source` condition); `build` (`npm run build`) is outside it.
+  // `typecheck`, `build`, `lint` and `test`; each depends on the same task in the workspaces it
+  // imports (`^`), so a change in a dependency reruns its dependents. The `//#` tasks are the
+  // root's: `scripts/`, `.cursor/hooks/` and root configs, plus the repo-wide checks. The gate
+  // reads source (the `@sheavly/source` condition) except for `build`, which compiles with
+  // `tsconfig.build.json`, a different file list from the `tsconfig.json` typecheck uses, so it
+  // can fail when typecheck passes.
   // The cache stays in this checkout (turbo would otherwise share the main worktree's), so a
   // worktree never writes into another one.
   "cacheDir": ".turbo/cache",

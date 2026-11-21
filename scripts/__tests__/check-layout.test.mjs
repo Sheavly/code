@@ -11,7 +11,10 @@ const ESLINT =
   "import { baseConfig } from '@sheavly/eslint-config';\n\nexport default baseConfig({ tsconfigRootDir: import.meta.dirname });\n";
 const json = (value) => JSON.stringify(value);
 /** What a published package ships, and what builds it first: every package fixture has it. */
-const PUBLISHED = { files: ['dist', 'docs'], scripts: { prepack: 'npm run build' } };
+const PUBLISHED = {
+  files: ['dist', 'docs'],
+  scripts: { build: 'tsc -b tsconfig.build.json', prepack: 'npm run build' },
+};
 
 /** The `exports` entry that makes every file of `kind` public, as the layout expects it. */
 const exported = (kind) => ({
@@ -216,6 +219,41 @@ describe('the layout check', () => {
         'packages/top/src/top/top.utils.ts': null,
       }),
     ).not.toContainEqual(expect.stringContaining('tsconfig.build.json'));
+  });
+
+  // Turbo skips a workspace with no `build` script without a word, so one with a build config and
+  // no script would escape the gate's build.
+  it('fails a workspace with a build config and no build script that runs it', () => {
+    const build = json({ extends: './tsconfig.json', references: [{ path: '../base' }] });
+    const withScripts = (scripts) =>
+      json({
+        name: '@sheavly/top',
+        sheavly: { domain: 'generic' },
+        dependencies: { '@sheavly/base': '0' },
+        devDependencies: { '@sheavly/lint': '0' },
+        exports: exported('utils'),
+        files: PUBLISHED.files,
+        scripts,
+      });
+    const buildProblems = (scripts) =>
+      problems({
+        'packages/top/tsconfig.build.json': build.replace('../base', '../base/tsconfig.build.json'),
+        'packages/top/package.json': withScripts(scripts),
+      }).filter((problem) => problem.includes('scripts.build'));
+
+    expect(buildProblems({ build: 'tsc -b tsconfig.build.json' })).toEqual([]);
+    expect(buildProblems({ typecheck: 'tsc --noEmit' })).toEqual([
+      expect.stringContaining('packages/top/package.json: set "scripts.build" to "tsc -b'),
+    ]);
+    expect(buildProblems({ build: 'tsc --noEmit' })).toEqual([
+      expect.stringContaining('set "scripts.build"'),
+    ]);
+    // No build config, nothing to build: the check does not ask for a script.
+    expect(
+      problems({ 'packages/top/package.json': withScripts({}) }).filter((problem) =>
+        problem.includes('scripts.build'),
+      ),
+    ).toEqual([]);
   });
 
   it.each([{ appOnlyModules: [] }, { appOnlyModules: ['base'] }])(

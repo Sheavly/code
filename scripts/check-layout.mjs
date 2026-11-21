@@ -4,7 +4,8 @@
 // an extension depends on the host only in its tests (a dev dependency).
 // Every workspace also has an `eslint.config.js` calling `baseConfig`, a `tsconfig.json`
 // extending `tsconfig.base.json` with `rootDir: "src"`, a `tsconfig.build.json` referencing
-// exactly the workspaces it depends on, and source of its own. And TypeScript
+// exactly the workspaces it depends on (and a `build` script that runs it, which the gate runs),
+// and source of its own. And TypeScript
 // lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. Every workspace
 // has a README.md and a docs/ folder the README links each file of. The workspace
 // graph in docs/overview.md is the one drawn from the workspaces (`graph.mjs`), and no other doc
@@ -120,6 +121,32 @@ function referenceProblems(params) {
         (dir) =>
           `${entry.dir}/tsconfig.build.json: drop the reference to ${dir}: ${name} doesn't depend on it at runtime (add it to dependencies if its source imports it).`,
       ),
+    ];
+  });
+}
+
+/** The script every workspace with a `tsconfig.build.json` runs for `npm run build`. */
+const BUILD_SCRIPT = 'tsc -b tsconfig.build.json';
+
+/**
+ * The gate runs the `build` task of every workspace that has one, and turbo skips a workspace
+ * without the script without a word, so a workspace with a build config and no script would
+ * escape the check that its build compiles.
+ */
+function buildScriptProblems(params) {
+  const { root, layout, files } = params;
+
+  return Object.values(layout).flatMap((entry) => {
+    const hasBuildConfig = existsSync(path.join(root, entry.dir, 'tsconfig.build.json'));
+
+    if (!hasBuildConfig || !hasSource({ files, dir: entry.dir })) return [];
+
+    const manifest = JSON.parse(readFileSync(path.join(root, entry.dir, 'package.json'), 'utf8'));
+
+    if (manifest.scripts?.build === BUILD_SCRIPT) return [];
+
+    return [
+      `${entry.dir}/package.json: set "scripts.build" to "${BUILD_SCRIPT}": the gate builds every workspace with a tsconfig.build.json, and turbo skips one without that script.`,
     ];
   });
 }
@@ -243,6 +270,7 @@ export function findLayoutProblems(params) {
     ...layoutProblems(layout).map((problem) => `${problem}.`),
     ...workspaces.flatMap((workspace) => configProblems({ workspace })),
     ...referenceProblems({ root, layout, files }),
+    ...buildScriptProblems({ root, layout, files }),
     ...emptyProblems({ root, workspaces, files }),
     ...docsProblems({ root, workspaces, files }),
     ...providerProblems({ root, workspaces, layout, files }),

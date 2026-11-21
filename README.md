@@ -53,7 +53,7 @@ npm run test:watch  # re-run on save
 npm run typecheck   # type errors only
 npm run lint        # ESLint (see "Code quality" below)
 npm run format      # Prettier: format everything
-npm run check       # the full quality gate: typecheck + lint + format check + knip + jscpd + layout + tests
+npm run check       # the full quality gate: typecheck + build + lint + format check + knip + jscpd + layout + tests
 ```
 
 `test`, `typecheck`, `lint` and `check` run through Turborepo, so a rerun reuses every result whose
@@ -123,8 +123,11 @@ file kinds a package's `exports` makes public (`"./*.types"`), its public API.
 
 ## Code quality
 
-`npm run check` is the quality gate: typecheck, ESLint, `prettier --check`, knip, jscpd, the
-layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on every PR.
+`npm run check` is the quality gate: typecheck, the build, ESLint, `prettier --check`, knip, jscpd,
+the layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on
+every PR. The build is in the gate because typecheck compiles with `tsconfig.json` and the build
+with `tsconfig.build.json`, which leaves out tests and fakes: a change can pass the first and break
+the second.
 
 The shell-write recorder distinguishes concurrent literal `npx prettier --write` operations
 using predicted formatting and verified file hashes, not timing alone. A matching formatter
@@ -142,7 +145,8 @@ checkout root remain fail-closed; the command's working directory is never used 
 `npm run check` runs every task in `turbo.json`, along the dependency graph npm workspaces define:
 
 - **Per workspace:** every package has its own `typecheck`, `lint` and `test` scripts, which check
-  only its files. Each runs after the same task in the packages it imports (`^typecheck`, …).
+  only its files, and every one with a `tsconfig.build.json` a `build` script (`tsc -b`; the layout
+  check requires it). Each runs after the same task in the packages it imports (`^typecheck`, …).
 - **The root** (`//#` tasks): `lint:root` and `test:root` check `scripts/`, `.cursor/hooks/` and the root configs; `format:check`, `knip`, `jscpd` and `layout` check the
   whole repo. `lint:prompt` independently checks the base prompt's tool-contract review record.
 - **Cache:** results other than `lint:prompt` are cached in `.turbo/cache` (per checkout, so
@@ -153,8 +157,9 @@ checkout root remain fail-closed; the command's working directory is never used 
 - **Affected only:** `npm run check:affected` runs the workspace tasks only for workspaces changed
   since `main` (committed or not) and those that depend on them, then the repo-wide checks in full.
   CI runs it on PRs and restores `.turbo/cache` from `main`'s last run; the stop hook runs the
-  affected typecheck and lint, plus independent prompt review for tool, prompt, metadata and
-  review-tooling changes. Prompt failures remain visible even when only a tool is in scope.
+  affected typecheck and lint (not the build, which stays in `npm run check` and CI so the hook is
+  quick), plus independent prompt review for tool, prompt, metadata and review-tooling changes.
+  Prompt failures remain visible even when only a tool is in scope.
 
 ### System prompt review
 
