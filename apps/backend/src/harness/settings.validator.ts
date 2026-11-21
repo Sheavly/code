@@ -79,6 +79,8 @@ export function parseServerEnv(env: Record<string, string | undefined>) {
   return {
     host: parsed.SERVER_HOST,
     port: parsed.SERVER_PORT,
+    /** True when `SERVER_PORT` is unset or empty: the port was not asked for, so it may move. */
+    portIsDefault: optionalSetting.parse(env.SERVER_PORT) === undefined,
     token: parsed.SERVER_TOKEN,
     /**
      * Whether the setup routes that hand out access (a model's key, a workspace's trust) may work:
