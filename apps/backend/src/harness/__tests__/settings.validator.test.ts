@@ -9,9 +9,20 @@ describe('parseServerEnv', () => {
       port: SERVER.port,
       portIsDefault: true,
       token: undefined,
+      discovery: true,
       remoteSetupAllowed: true,
     });
     expect(parseServerEnv({ SERVER_PORT: '0' }).port).toBe(0);
+  });
+
+  it('publishes discovery by default, and only the exact word "false" turns it off', () => {
+    const discovery = (env: Record<string, string>) => parseServerEnv(env).discovery;
+
+    expect(discovery({})).toBe(true);
+    expect(discovery({ SERVER_DISCOVERY: '' })).toBe(true);
+    expect(discovery({ SERVER_DISCOVERY: 'true' })).toBe(true);
+    expect(discovery({ SERVER_DISCOVERY: 'false' })).toBe(false);
+    expect(() => parseServerEnv({ SERVER_DISCOVERY: 'off' })).toThrow();
   });
 
   it('calls the port a default only when SERVER_PORT is unset or empty, so an explicit one stays strict', () => {
