@@ -7,7 +7,11 @@ import {
   RUNTIME_SUBFOLDER,
   XDG_RUNTIME_VARIABLE,
 } from './server-runtime.constants.js';
-import type { PrivateDirectoryCheck, ServerRuntimeDirectory } from './server-runtime.types.js';
+import type {
+  PrivateDirectoryCheck,
+  RuntimeCandidate,
+  ServerRuntimeDirectory,
+} from './server-runtime.types.js';
 import { hashResolvedHome } from './server-runtime.utils.js';
 
 type Refused = Extract<PrivateDirectoryCheck, { status: 'refused' }>;
@@ -67,6 +71,41 @@ export async function serverNameHash(params: { home: string }): Promise<string> 
     if (!isMissingPath(caughtError)) throw caughtError;
 
     return hashResolvedHome(path.resolve(params.home));
+  }
+}
+
+/**
+ * The folders a server of `home` may have published in, in the order a client looks: the
+ * `$XDG_RUNTIME_DIR/sheavly/<hash>` folder when the variable is set to an absolute path, then the
+ * home folder itself (by its real path, as `serverRuntimeDirectory` uses it). Looks only: it
+ * creates, changes and checks nothing, so a folder listed may not exist or may not be private; the
+ * reader judges that. A home that does not exist yet is listed by its absolute path. Rejects when
+ * the home cannot be resolved at all (a NUL byte, a name too long), as `serverNameHash` does. On
+ * Windows the home folder alone.
+ */
+export async function serverRuntimeCandidates(params: {
+  env: Readonly<Record<string, string | undefined>>;
+  home: string;
+  platform: NodeJS.Platform;
+}): Promise<RuntimeCandidate[]> {
+  const { env, home, platform } = params;
+  const homeCandidate: RuntimeCandidate = { directory: await realHome(home), source: 'home' };
+  const xdg = env[XDG_RUNTIME_VARIABLE];
+
+  if (platform === 'win32' || xdg === undefined || !path.isAbsolute(xdg)) return [homeCandidate];
+
+  const hash = await serverNameHash({ home });
+
+  return [{ directory: path.join(xdg, RUNTIME_SUBFOLDER, hash), source: 'xdg' }, homeCandidate];
+}
+
+async function realHome(home: string): Promise<string> {
+  try {
+    return await realpath(home);
+  } catch (caughtError) {
+    if (!isMissingPath(caughtError)) throw caughtError;
+
+    return path.resolve(home);
   }
 }
 

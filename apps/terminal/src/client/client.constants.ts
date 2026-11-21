@@ -20,5 +20,20 @@ export const LISTENING_LINE = /^→ listening on (\S+)$/m;
  */
 export const ENDED_TASKS_KEPT = 1000;
 
+/** How long a backend that is already running may take to answer `--trust` before the start fails. */
+export const TRUST_TIMEOUT_MS = 10_000;
+
+/** The most characters of a backend's refusal the terminal prints: a refusal is shown, not read out. */
+export const TRUST_REASON_MAX_CHARS = 200;
+
+/** What replaces the backend token in text a backend sent back. */
+export const TOKEN_REDACTED = '[token hidden]';
+
+/** What replaces a backend's whole refusal text when it echoes part of the token. */
+export const TEXT_HIDDEN = "[the backend's text was hidden: it echoed the token]";
+
+/** How many consecutive characters of the token make an echo: fewer are too common to mean it. */
+export const TOKEN_ECHO_CHARS = 8;
+
 /** The workspace whose `serve` script the terminal runs to start a backend. */
 export const BACKEND_PACKAGE = '@sheavly/backend';

@@ -1,7 +1,12 @@
 import { API_ROUTES, LAST_EVENT_ID_HEADER } from '@sheavly/protocol/api/api.constants';
 import type { RouteName } from '@sheavly/protocol/api/api.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { AnswerError, RedirectedError, RefusedError } from '../errors/client.errors.js';
+import {
+  AnswerError,
+  AnswerTooLargeError,
+  RedirectedError,
+  RefusedError,
+} from '../errors/client.errors.js';
 import { readBoundedText } from './bounded-body.helper.js';
 import type {
   AnswerOf,
@@ -16,6 +21,7 @@ import type {
 import { parseServerError } from './client.validator.js';
 import { readEntries } from './entries.helper.js';
 import { PUBLIC_ANSWER_MAX_BYTES } from './public-answer.constants.js';
+import { REFUSAL_MAX_BYTES } from './refusal.constants.js';
 
 /**
  * A client for a harness backend, built from the API's routes (`API_ROUTES`): one call per route,
@@ -201,13 +207,26 @@ async function request(params: {
   });
 }
 
-/** The text of a refusal; a public route's is bounded like its answers. */
-function readRefusal(params: { response: Response; name: RouteName }): Promise<string> {
+/**
+ * The text of a refusal. A public route's is bounded like its answers and too much is an error; a
+ * private route's is bounded too, but too much reads as no text, so the refusal keeps its status
+ * and a fixed message instead of failing on what a hostile server sent.
+ */
+async function readRefusal(params: { response: Response; name: RouteName }): Promise<string> {
   const { response, name } = params;
 
-  if (!isPublic(name)) return response.text();
+  if (isPublic(name)) {
+    return readBoundedText({ response, route: name, maxBytes: PUBLIC_ANSWER_MAX_BYTES });
+  }
 
-  return readBoundedText({ response, route: name, maxBytes: PUBLIC_ANSWER_MAX_BYTES });
+  try {
+    return await readBoundedText({ response, route: name, maxBytes: REFUSAL_MAX_BYTES });
+  } catch (caughtError) {
+    // Only the bound is expected here; a body that fails to stream is not hidden.
+    if (caughtError instanceof AnswerTooLargeError) return '';
+
+    throw caughtError;
+  }
 }
 
 /** The token a private route needs; a client with none can't call one. */

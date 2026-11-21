@@ -10,12 +10,16 @@ import { connectBackend } from './backend.helper.js';
 import type { Backend } from './client.types.js';
 import { openConversation } from './conversation.helper.js';
 import type { RemoteConversation } from './conversation.service.js';
+import { trustFolderOnAttached } from './trust-attached.helper.js';
 
 /**
  * A terminal CLI's conversation, as the chat and the demo open it: the backend (started with
  * `env` and `--trust` from `args`, its output written as it comes), a new conversation on it, its
- * details and a renderer. `prompt` is the rest of `args`. Prints what the run is: the model, the
- * workspace, the permission mode and why `.sheavly/` hooks didn't load.
+ * details and a renderer. A backend that was already running (`BACKEND_URL`) gets `--trust` sent
+ * to it for this terminal's folder before the conversation opens, and that same folder is the
+ * conversation's workspace (`trustFolderOnAttached`). `prompt` is the rest of `args`.
+ * Prints what the run is: the model, the workspace, the permission mode and why `.sheavly/` hooks
+ * didn't load.
  */
 export async function openSession(params: {
   env: NodeJS.ProcessEnv;
@@ -45,6 +49,15 @@ export async function openSession(params: {
   let conversation: RemoteConversation | undefined;
 
   try {
+    // Before anything opens: a backend that was already running never got this run's `--trust`.
+    const workspace = await trustFolderOnAttached({
+      backend,
+      args,
+      workspace: params.workspace,
+      env,
+      write,
+    });
+
     const profile = await settleProfile({
       backend,
       resume: resume.id,
@@ -57,7 +70,7 @@ export async function openSession(params: {
     conversation = await openConversation({
       backend,
       resume: resume.id,
-      workspace: params.workspace,
+      workspace,
       profile,
     });
 
