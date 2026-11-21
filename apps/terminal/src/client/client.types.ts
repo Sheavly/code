@@ -20,6 +20,8 @@ export type BackendOptions = {
 export type Backend = {
   url: string;
   token: string;
+  /** Set when the terminal only connected to a backend that was already running (`BACKEND_URL`). */
+  attached?: true;
   stop: (options?: { timeoutMs?: number }) => Promise<void>;
   fetch?: typeof fetch;
   /** How its streams reconnect after a drop: the client's defaults unless a test says otherwise. */

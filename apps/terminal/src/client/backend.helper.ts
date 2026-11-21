@@ -24,7 +24,12 @@ export async function connectBackend(options: BackendOptions): Promise<Backend> 
       throw new BackendError({ message: 'Set BACKEND_TOKEN with BACKEND_URL' });
     }
 
-    return { url: env.BACKEND_URL, token: env.BACKEND_TOKEN, stop: async () => undefined };
+    return {
+      url: env.BACKEND_URL,
+      token: env.BACKEND_TOKEN,
+      attached: true,
+      stop: async () => undefined,
+    };
   }
 
   return startBackend(options);
