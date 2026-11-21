@@ -23,7 +23,9 @@ for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' }
 - `stream`: a route's server-sent events, as entries (`readEntries`: each `entry` frame parsed
   with `streamEntrySchema`, heartbeats skipped). `open` hands back the raw stream, to save.
 - A refused request throws `RefusedError`, with the backend's `code` (`not_found`,
-  `unknown_model`, …) to branch on.
+  `unknown_model`, …) to branch on. The client reads at most 4 KB of a private route's refusal
+  too: a longer one is cancelled at the bound and the error keeps its status with a fixed message and
+  no `code`.
 - A public route's answer over 4 KB throws `AnswerTooLargeError`, and its redirect
   `RedirectedError`.
 
