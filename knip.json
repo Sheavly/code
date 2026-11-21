@@ -19,6 +19,10 @@
       ],
       "ignore": ["workbook/workspaces/**"]
     },
+    // A process test preloads this file into a server it starts, by path; nothing imports it.
+    "apps/backend": {
+      "entry": ["src/testing/slow-rename.fake.ts"]
+    },
     // The lock tests start these files as child processes by path; nothing imports them.
     "packages/storage": {
       "entry": [

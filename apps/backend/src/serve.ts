@@ -12,22 +12,32 @@
  * picks a free one, from 20000-32000 when the OS has none; an explicit port that is taken fails)
  * and needs SERVER_TOKEN on every request but `GET /health` and `QUERY /handshake`, as
  * `Authorization: Bearer <token>`; without one it makes one and prints it once. Once it listens it
- * prints `→ listening on <url>`, the line a UI that started it waits for. Ctrl+C, SIGTERM, closing
+ * prints `→ listening on <url>`, the line a UI that started it waits for. A server that is not
+ * SERVER_EXIT_WITH_PARENT and has not SERVER_DISCOVERY=false first takes its home's one-server
+ * lock (exit 1 when another holds it) and publishes its address and token in the discovery file
+ * once it listens; the others take no lock and write no file. Ctrl+C, SIGTERM, closing
  * the terminal or, with SERVER_EXIT_WITH_PARENT=true, its stdin closing (the UI that started it
  * is gone) stops it, and every conversation's prompts, tasks and processes with it. Calls the real
  * API, so it costs money. The routes: apps/backend/docs/api.md.
  */
 import { randomBytes } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
+import { PROTOCOL_VERSION } from '@sheavly/protocol/version/protocol-version.constants';
 import { sheavlyHome } from '@sheavly/storage/home/home.helper';
 import { pruneScratch } from '@sheavly/workspace/scratch/scratch.helper';
 import { createAdaptorServer } from '@hono/node-server';
 import { createApiApp } from './api/api.helper.js';
 import { createBackend } from './backend.helper.js';
+import { claimServerPresence } from './discovery/claim-presence.helper.js';
+import { STOP_SIGNALS } from './discovery/discovery.constants.js';
+import { discoveryFileFor, isDiscoverable } from './discovery/discovery.utils.js';
+import { guardStartup } from './discovery/startup-signals.helper.js';
+import { SERVER } from './harness/harness.constants.js';
 import { sharedScratchRoot } from './harness/scratch.helper.js';
 import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/settings.validator.js';
 import { newInstanceId } from './instance/instance-id.helper.js';
 import { listenServer } from './listen/listen.helper.js';
+import { portMovedNotice } from './listen/port-notice.utils.js';
 import { configureServerTimeouts } from './listen/server-timeouts.helper.js';
 import { readServerVersion } from './version/server-version.helper.js';
 
@@ -40,22 +50,22 @@ const settings = {
   ...parseRunEnv(process.env),
 };
 const server = parseServerEnv(process.env);
+const log = (text: string) => void process.stderr.write(text);
+
+// Before the lock and the file exist: a signal while starting must not leave them behind.
+const guard = guardStartup({ source: process, exit: (code) => process.exit(code), log });
 const token = server.token ?? randomBytes(32).toString('base64url');
 // Made once per start and returned by no route: it only salts the handshake proof.
 const instanceId = newInstanceId();
 const serverVersion = await readServerVersion();
-const log = (text: string) => void process.stderr.write(text);
+// Everything that can fail on a setting or a build comes before the claim, so no error can leave
+// the lock behind; the claim comes before anything that works or prints the token.
 const { conversations, setup, workspaces, permissions } = createBackend({
   env: process.env,
   settings,
   log,
   remoteSetupAllowed: server.remoteSetupAllowed,
 });
-
-// Stale scratch entries are removed once at startup; a failure is reported, never fatal.
-pruneScratch({ root: sharedScratchRoot() }).catch((caughtError: unknown) =>
-  log(`Could not prune the scratch folder: ${String(caughtError)}\n`),
-);
 const app = createApiApp({
   conversations,
   setup,
@@ -75,6 +85,15 @@ function printStarted(address: AddressInfo): void {
   if (!server.token) console.log(`→ token (SERVER_TOKEN unset, so made for this run): ${token}`);
 
   console.log('→ Ctrl+C to stop');
+
+  const moved = portMovedNotice({
+    portIsDefault: server.portIsDefault,
+    defaultPort: SERVER.port,
+    port: address.port,
+  });
+
+  if (moved) console.log(moved);
+
   // Last, as the line a UI that started this process waits for: everything is ready by then.
   console.log(`→ listening on http://${server.host}:${String(address.port)}`);
 }
@@ -84,14 +103,69 @@ const listening = createAdaptorServer({ fetch: app.fetch, hostname: server.host 
 // Two public routes read a body without a token: a client that trickles one is cut off.
 configureServerTimeouts({ server: listening });
 
-await listenServer({
-  server: listening,
-  host: server.host,
-  port: server.port,
-  fallback: server.portIsDefault,
+// The first thing the start takes: a refused start has changed nothing but its own lock probe.
+const claiming = claimServerPresence({
+  discoverable: isDiscoverable({ ...server, ...settings }),
+  home: sheavlyHome(process.env),
+  env: process.env,
+  uid: process.getuid?.() ?? 0,
+  log,
 });
+
+guard.track(claiming.then((claimed) => (claimed.status === 'go' ? claimed.presence : undefined)));
+
+const start = await claiming;
+
+// After a signal the guard cleans up and exits; the start does nothing more, not even refuse.
+await guard.proceed();
+
+if (start.status === 'refused') {
+  log(`${start.message}\n`);
+  process.exit(1);
+}
+
+const { presence } = start;
+
+// Stale scratch entries are removed once at startup; a failure is reported, never fatal.
+pruneScratch({ root: sharedScratchRoot() }).catch((caughtError: unknown) =>
+  log(`Could not prune the scratch folder: ${String(caughtError)}\n`),
+);
+
+try {
+  await listenServer({
+    server: listening,
+    host: server.host,
+    port: server.port,
+    fallback: server.portIsDefault,
+  });
+} catch (caughtError) {
+  // The failure is the same error as without a lock, and no socket is left behind.
+  await presence?.release();
+  throw caughtError;
+}
+
 // A TCP listen (host and port) always has an address object, never a pipe path.
-printStarted(listening.address() as AddressInfo);
+const address = listening.address() as AddressInfo;
+
+await guard.proceed();
+
+// Before the `listening` line, so a client that waited for it finds the file.
+const publishing = presence?.publish(
+  discoveryFileFor({
+    ...server,
+    port: address.port,
+    token,
+    instanceId,
+    serverVersion,
+    protocolVersion: PROTOCOL_VERSION,
+    pid: process.pid,
+  }),
+);
+
+// A signal now must wait for the write, or the file would appear after it was removed.
+guard.track(Promise.resolve(publishing).then(() => presence));
+await publishing;
+await guard.proceed();
 
 let stopping = false;
 
@@ -99,19 +173,22 @@ let stopping = false;
 async function stop(code: number): Promise<never> {
   if (stopping) process.exit(code);
   stopping = true;
+  // Out of the file first, so clients stop finding it; the lock last, so a successor cannot start
+  // while conversations are still closing.
+  await presence?.remove();
   listening.close();
   await conversations.closeAll();
+  await presence?.release();
   console.log('→ stopped');
   process.exit(code);
 }
 
-for (const [signal, code] of [
-  ['SIGINT', 130],
-  ['SIGTERM', 143],
-  ['SIGHUP', 129],
-] as const) {
-  process.on(signal, () => void stop(code));
-}
+for (const { signal, code } of STOP_SIGNALS) process.on(signal, () => void stop(code));
+
+// After the stop handlers and before the `listening` line: with no listener for a moment, Node
+// restores the default action, and a UI that signals on that line would kill the process.
+guard.uninstall();
+printStarted(address);
 
 // A UI that started the backend holds its stdin open; when the UI exits, even killed, the pipe
 // closes, so nothing it started outlives it.

@@ -1,0 +1,153 @@
+import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { chmod, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach } from 'vitest';
+import type { ServeExit, ServeFolders, ServeProcess } from './serve-process.types.js';
+
+const SERVE = path.join(import.meta.dirname, '..', 'serve.ts');
+const BACKEND_DIR = path.join(import.meta.dirname, '..', '..');
+const LISTENING = /→ listening on (\S+)/;
+const START_TIMEOUT_MS = 40_000;
+
+type Extra = Record<string, string | undefined>;
+type Listened = { url: string } | { failure: string };
+
+/**
+ * Test-only: starts the REAL `serve.ts` through tsx, as `npm run serve` does but as the node
+ * process itself, so `pid` is the server's. Each test gets fresh temp folders for `SHEAVLY_HOME`
+ * and `XDG_RUNTIME_DIR` (the real ones are never used), a made-up token and port 0; `extra` adds
+ * or, with `undefined`, removes a variable. `start` waits for the `listening` line,
+ * `startAndWaitForExit` for the process to end. Every child is killed and the folders removed
+ * when the test ends.
+ */
+export function useServeProcesses(): {
+  folders: () => ServeFolders;
+  start: (extra?: Extra) => Promise<ServeProcess>;
+  startAndWaitForExit: (extra?: Extra) => Promise<ServeProcess>;
+  /** Spawns the server and returns at once, for a test that acts while it is still starting. */
+  begin: (extra?: Extra) => ServeProcess;
+} {
+  let current: ServeFolders | undefined;
+  const started: { process: ServeProcess; kill: () => void }[] = [];
+
+  beforeEach(async () => {
+    const base = await mkdtemp(path.join(tmpdir(), 'serve-process-'));
+    const xdg = path.join(base, 'xdg');
+    const project = path.join(base, 'project');
+
+    await mkdir(xdg, { mode: 0o700 });
+    await chmod(xdg, 0o700);
+    await mkdir(project);
+    current = {
+      base,
+      home: path.join(base, 'home'),
+      xdg,
+      project,
+      token: randomBytes(32).toString('base64url'),
+    };
+  });
+
+  afterEach(async () => {
+    const children = started.splice(0);
+
+    for (const child of children) child.kill();
+    await Promise.all(children.map((child) => child.process.exited));
+    if (current) await rm(current.base, { recursive: true, force: true });
+  });
+
+  function folders(): ServeFolders {
+    if (!current) throw new Error('useServeProcesses: no test is running');
+
+    return current;
+  }
+
+  function launch(extra: Extra): { process: ServeProcess; listening: Promise<Listened> } {
+    const { home, xdg, project, token, base } = folders();
+    const env: Extra = {
+      PATH: process.env.PATH,
+      HOME: base,
+      SHEAVLY_HOME: home,
+      XDG_RUNTIME_DIR: xdg,
+      WORKSPACE_ROOT: project,
+      SERVER_TOKEN: token,
+      SERVER_PORT: '0',
+      ...extra,
+    };
+    const child = spawn(
+      process.execPath,
+      ['--conditions=@sheavly/source', '--import', 'tsx', SERVE],
+      { cwd: BACKEND_DIR, env: definedOnly(env), stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    let out = '';
+    let err = '';
+    const exited = new Promise<ServeExit>((resolve) => {
+      child.once('close', (code, signal) => resolve({ code, signal }));
+    });
+    const made: ServeProcess = {
+      pid: child.pid ?? 0,
+      url: '',
+      stdout: () => out,
+      stderr: () => err,
+      exited,
+      stop: (signal) => {
+        child.kill(signal);
+
+        return exited;
+      },
+    };
+    // Never rejects: a server that is meant to end would leave a rejection nobody awaits.
+    const listening = new Promise<Listened>((resolve) => {
+      const timer = setTimeout(() => {
+        resolve({ failure: `the server did not listen in time:\n${out}${err}` });
+      }, START_TIMEOUT_MS);
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        out += chunk.toString();
+
+        const url = LISTENING.exec(out)?.[1];
+
+        if (url === undefined) return;
+        clearTimeout(timer);
+        resolve({ url });
+      });
+      void exited.then(() => {
+        clearTimeout(timer);
+        resolve({ failure: `the server ended before it listened:\n${out}${err}` });
+      });
+    });
+
+    child.stderr.on('data', (chunk: Buffer) => (err += chunk.toString()));
+    started.push({ process: made, kill: () => child.kill('SIGKILL') });
+
+    return { process: made, listening };
+  }
+
+  return {
+    folders,
+    start: async (extra = {}) => {
+      const { process: made, listening } = launch(extra);
+
+      const result = await listening;
+
+      if ('failure' in result) throw new Error(result.failure);
+
+      return { ...made, url: result.url };
+    },
+    begin: (extra = {}) => launch(extra).process,
+    startAndWaitForExit: async (extra = {}) => {
+      const { process: made } = launch(extra);
+
+      await made.exited;
+
+      return made;
+    },
+  };
+}
+
+function definedOnly(env: Extra): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+}

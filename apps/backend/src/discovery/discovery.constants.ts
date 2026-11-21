@@ -5,6 +5,13 @@
  */
 export const WILDCARD_HOSTS: readonly string[] = ['0.0.0.0', '[::]', '[::ffff:0:0]'];
 
+/** The signals that stop the server, with the exit code a shell reports for each (128 + number). */
+export const STOP_SIGNALS = [
+  { signal: 'SIGINT', code: 130 },
+  { signal: 'SIGTERM', code: 143 },
+  { signal: 'SIGHUP', code: 129 },
+] as const;
+
 /** A host written as a bracketed IPv6 literal (`[::1]`); group 1 is the address. */
 export const BRACKETED_HOST = /^\[(.*)\]$/;
 
