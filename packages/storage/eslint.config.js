@@ -12,7 +12,8 @@ export default defineConfig([
   // one that names the file: where the server's lock and discovery file live is resolved only
   // here (`harness/no-discovery-path`).
   {
-    files: ['src/server-runtime/**', 'src/discovery-file/**'],
+    // The finder's fake builds the folders and the environment of a server for its tests.
+    files: ['src/server-runtime/**', 'src/discovery-file/**', 'src/server-finder/testing/**'],
     rules: { 'harness/no-discovery-path': 'off' },
   },
   // A bare `SerialQueue` orders one process only. These three own a queue on purpose: the
@@ -46,6 +47,8 @@ export default defineConfig([
       // The discovery file is written and removed on purpose: private, flushed, never half-written,
       // with checks `writeJsonFile` has no place for (a planted link, the umask).
       'src/discovery-file/**',
+      // The finder's fake makes the private folders a server publishes in, for its tests.
+      'src/server-finder/testing/**',
       'src/output-store/output-store.service.ts',
       'src/output-store/output-writer.service.ts',
       'src/output-store/__tests__/**',

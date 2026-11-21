@@ -15,6 +15,9 @@ export type PrivateDirectoryCheck =
       cause?: unknown;
     };
 
+/** A folder a server of one home may have published in, as `serverRuntimeCandidates` lists it. */
+export type RuntimeCandidate = { directory: string; source: 'xdg' | 'home' };
+
 /** The result of `serverRuntimeDirectory`. */
 export type ServerRuntimeDirectory =
   | {

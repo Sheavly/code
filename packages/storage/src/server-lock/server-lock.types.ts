@@ -68,5 +68,11 @@ export type Publication =
   | { status: 'exists' }
   | { status: 'failed'; reason: LockUnusableReason; error: unknown };
 
+/**
+ * What `probeServerLock` found: `held` (a server listens), `free` (nobody does: what a killed
+ * server leaves) or `inconclusive` (no answer in time, or an error that says neither).
+ */
+export type LockProbe = 'held' | 'free' | 'inconclusive';
+
 /** What a connect to an existing socket file showed. */
 export type ProbeResult = 'live' | 'stale' | 'unknown';
