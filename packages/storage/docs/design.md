@@ -173,7 +173,9 @@ something that works on the system the code was written on and fails on another:
   Windows' 260-character limit.
 - **Paths are built with `node:path`**, never by joining with `/`, and a path kept in a file is
   not compared as text across systems (`C:\Users\x` and `c:\users\x` are one folder).
-- **The home folder is `os.homedir()`**, chosen by the app. `HOME` doesn't exist on Windows.
+- **The home folder is `os.homedir()`**, never `HOME`, which doesn't exist on Windows. `sheavlyHome`
+  (`home/`) is the one place that picks the user's folder: `SHEAVLY_HOME` (an empty one counts as
+  not set), else `.sheavly` in that home. A store takes the root it is given and never reads env.
 - **Sorting does not use the system's locale.** `readdir` lists in the system's order and a
   default `Intl.Collator` follows the machine's language, so the same profile would list
   differently on two machines. A listing sorts file names by code and labels with a fixed locale.
@@ -332,6 +334,42 @@ not import, so the caller parses it with `file` as the source of its messages.
 - **`ProfileStore` does not look at it.** `list()` reads only each folder's `profile.json`, so a
   `settings.json` beside it is neither a problem nor a profile, and `remove` deletes the profile's
   folder whole, the settings file with it.
+
+## The discovery file and the server's presence
+
+`discovery-file/` holds `server.json`, the file a running server writes so clients on the machine
+find it (where it listens, the token that opens it, which instance it is), in the runtime folder
+`serverRuntimeDirectory` chose, beside the lock socket. Its shape is the protocol's
+`discoveryFileSchema`. It holds a token, so it is its own module and does not use `writeJsonFile`.
+
+- **Writing** (`publishDiscoveryFile`): the folder must pass `checkPrivateDirectory`, a value the
+  schema rejects or that would not fit the reader's cap is refused before anything is written, and
+  a folder at the target is refused. Any other entry there (a link, a FIFO, a socket) is replaced
+  by the rename, which never follows a link, so a stale one cannot keep the server undiscoverable.
+  The value is written to `server.json.<pid>.<id>.tmp` made with `O_EXCL` (a planted link fails,
+  never followed), flushed, set to 0600 through the open handle (so a umask can neither widen nor
+  strip the mode) and renamed over the final name: a reader sees a whole file or none. A failure
+  removes the temp file only if this call made it. A sweep first removes the temp files of
+  publishes whose process no longer runs (a pid outside 1..4194304 counts as not running), and
+  `removeDiscoveryFile` sweeps the same way, because a crash can leave a 0600 temp file holding
+  the token. The result is a value (`published`, `refused`, `failed`); no message holds the token.
+- **Reading** (`readDiscoveryFile`) is the mirror, and the only way to read it: the same folder
+  check, then `O_NOFOLLOW` (and `O_NONBLOCK`, so a FIFO is refused, not waited on), then the checks
+  on the open handle (a regular file, ours, closed to others, at most `DISCOVERY_MAX_BYTES`), so
+  nothing can be swapped between check and read. A later `formatVersion` is `newer`, anything else
+  that does not parse is `invalid`; no result but `found` holds the file's text or the token.
+  Searching several folders, proving the holder is alive and calling it are the terminal's.
+- **Removing** (`removeDiscoveryFile`) reads the file the safe way and deletes it only when its
+  `instanceId` is the caller's: a successor's file stays. The read and the delete are two steps,
+  so a successor that publishes between them loses its file; that is reachable only after a crash
+  takeover, because removal runs before the lock is released.
+- **`ServerPresence`** is the lifecycle a backend calls: `claim` (the runtime folder, then the
+  lock), `publish` (only while the lock is held), `remove` (only our own file), `release`. Only a
+  `held` claim should stop a server; a folder or lock that cannot be used, and any failure to write
+  or remove the file, is a warning through `log`, and a method never rejects. `release` waits for a
+  claim still in flight and closes the instance: a later `claim` answers `unavailable` without
+  acquiring anything. `held` carries a `FirstServer` (pid, url, version, never the token) for
+  `describeHeld`'s message, which prints only the server's origin, never a login, path or query.
 
 ## Adding a store
 

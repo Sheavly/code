@@ -435,6 +435,20 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   override that turns a rule off outside those places (the credential store's folder for the
   file name, `apps/backend` for the import), and fails one that covers a whole workspace, so
   widening an exception means editing that test, where review sees it.
+- **Discovery path** (`harness/no-discovery-path`, source files; tests plant and read the file by
+  name and are exempt): no string or template piece containing the runtime-directory environment
+  variable's name or the discovery file's name (`process.env.<name>`, `env['<name>']`,
+  `path.join(dir, '<file>')`, a template, an object value), whole or inside a longer string, so a
+  derived name such as a temp file also fails. Where the server holds its lock and publishes its
+  discovery file is resolved once: `serverRuntimeDirectory`
+  (`@sheavly/storage/server-runtime/server-runtime.helper`) is the only reader of the variable,
+  `@sheavly/storage/discovery-file/*` the only code that names the file, and `DISCOVERY_FILE_NAME`
+  (`@sheavly/protocol/discovery/discovery.constants`) holds the name. A second resolver finds
+  another folder and talks to no server, or the wrong one. The exceptions are `files:` overrides
+  in `packages/storage/eslint.config.js` (`src/server-runtime/**`, `src/discovery-file/**`) and
+  `packages/protocol/eslint.config.js` (`src/discovery/**`); `workspace-coverage.test.js` fails an
+  override that turns the rule off anywhere else, and `no-discovery-path.test.js` pins where it is
+  on and off. It cannot see a name split across pieces or held in a variable.
 - **File writes** (`harness/no-direct-file-writes`, source files; tests and fakes write fixtures
   into temp folders and are exempt): no import of a function that creates, changes, moves or
   deletes a file or folder from `node:fs` or `node:fs/promises` (`writeFile`, `appendFile`,

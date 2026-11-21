@@ -19,7 +19,13 @@
       ],
       "ignore": ["workbook/workspaces/**"]
     },
-    // The two-process lock test starts this file as a child process by path; nothing imports it.
-    "packages/storage": { "entry": ["src/testing/lock-worker.fake.ts"] }
+    // The lock tests start these files as child processes by path; nothing imports them.
+    "packages/storage": {
+      "entry": [
+        "src/testing/lock-worker.fake.ts",
+        "src/server-lock/testing/server-lock-worker.fake.ts",
+        "src/discovery-file/testing/discovery-file-worker.fake.ts"
+      ]
+    }
   }
 }

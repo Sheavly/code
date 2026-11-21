@@ -14,10 +14,10 @@ import { parseSettingsFile } from '@sheavly/extension/host/settings-file.helper'
 import { MAX_IGNORED_SETTINGS } from '@sheavly/protocol/server/server.constants';
 import type { IgnoredSettingReport } from '@sheavly/protocol/server/server.types';
 import { StorageFileError, UnsafePathError } from '@sheavly/storage/errors/storage.errors';
+import { sheavlyHome } from '@sheavly/storage/home/home.helper';
 import { SettingsFiles } from '@sheavly/storage/settings-file/settings-files.service';
 import { SettingsFileError } from '../errors/settings-file.errors.js';
 import { SetupError } from '../errors/setup.errors.js';
-import { sheavlyHome } from '../profiles/home.helper.js';
 import { isEnvironmentError } from './environment-error.utils.js';
 import type { ResolvedSettings, SettingFileLayers } from './harness.types.js';
 import { reportedFile } from './setting-layers.utils.js';

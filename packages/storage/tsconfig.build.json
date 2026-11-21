@@ -21,5 +21,5 @@
       "path": "../runtime/tsconfig.build.json"
     }
   ],
-  "exclude": ["src/**/__tests__", "src/testing"]
+  "exclude": ["src/**/__tests__", "src/**/testing"]
 }

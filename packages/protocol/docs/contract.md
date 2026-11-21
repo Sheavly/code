@@ -94,6 +94,25 @@ no route, and also keeps the proof from being a way to guess the token offline, 
 instance id stays unleaked: whoever learns it can test guesses of a weak token against a recorded
 nonce and proof. A strong random token is the defence that does not depend on the id.
 
+## The discovery file
+
+`discovery/` defines the file a running server writes so a client on the same machine can find it:
+`{ formatVersion, url, token, instanceId, pid, serverVersion, protocolVersion }`, in a file named
+`DISCOVERY_FILE_NAME` (`server.json`) that a reader takes at most `DISCOVERY_MAX_BYTES` (4096) of.
+It is a contract between the server that writes it and the clients that read it, not an HTTP
+route: it is not in `API_ROUTES`, `contract.schema.json` or `openapi.json`. `discoveryFileSchema` is
+strict. The URL is `http:` or `https:` with no login in it, at most 2048 characters, and the token
+is 32 to 512 characters, both plain visible ASCII with no `"` or `\` (checked on the text as
+written, so a tab or a space is refused and never quietly dropped), and each version is at most
+64 characters, so a valid file always fits the reader's cap. A loopback host is not required.
+`formatVersion` (`DISCOVERY_FORMAT_VERSION`, 1) is
+the layout of this file and changes on its own, apart from the protocol version.
+`peekFormatVersion` reads only that number, so a reader can tell a newer format
+(`{ status: 'newer', formatVersion }`) from a broken file (`unreadable`) before validating in full.
+Validation errors name fields, never values, so the token does not reach a log through them.
+
+Nothing writes or reads the file yet: this module only defines it.
+
 ## Tool results arrive as tools finish
 
 `tool_call_started` comes when the model asks for a call, so a UI can show every call of a turn

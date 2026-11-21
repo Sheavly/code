@@ -1,11 +1,12 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
+import { sheavlyHome } from '@sheavly/storage/home/home.helper';
 import { servedConversation } from './harness/served.helper.js';
 import type { ServedSettings } from './harness/harness.types.js';
 import { SearchChains } from './harness/search-chains.service.js';
 import { parseRequestEnv } from './harness/settings.validator.js';
-import { permissionStoreFor, sheavlyHome, trustStoreFor } from './profiles/home.helper.js';
+import { permissionStoreFor, trustStoreFor } from './profiles/home.helper.js';
 import { PermissionSetup } from './profiles/permission-setup.service.js';
 import { PlacedConversationStore } from './profiles/placed-conversation-store.service.js';
 import { Profiles } from './profiles/profiles.service.js';

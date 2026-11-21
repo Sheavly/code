@@ -2,8 +2,8 @@
 
 The user's data on disk: the folder layout under `~/.sheavly`, file-backed stores for
 conversations, models, credentials and profiles, and the one atomic JSON write they share. Generic:
-it knows nothing about files in a workspace or about code. It never reads env or picks the home
-folder; an app passes the root in.
+it knows nothing about files in a workspace or about code. A store never reads env: an app passes
+the root in, and `sheavlyHome(env)` is the one place that says which folder that is.
 
 ```ts
 import { readJsonFile, writeJsonFile } from '@sheavly/storage/json-file/json-file.helper';
@@ -12,21 +12,25 @@ await writeJsonFile({ file: path.join(root, 'config.json'), value: { profile: 'w
 const config = await readJsonFile({ file: path.join(root, 'config.json'), schema }); // or undefined
 ```
 
-| Module                | What it holds                                                                                             |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `json-file/`          | `readJsonFile` and `writeJsonFile`: a typed read, and an atomic, private write that works on Windows      |
-| `model-store/`        | `ModelStore`: a profile's models, one `<model-id>.json` each; a bad file is reported, the rest load       |
-| `credential-store/`   | `CredentialStore`: a profile's keys in one private file; never in an error, never read if open to others  |
-| `config-store/`       | `ConfigStore`: profile bindings and global terminal preferences; `workspaceKey` hashes a real path        |
-| `permission-store/`   | `PermissionStore`: what `run_command` may do in each workspace, a file each under `permissions/`          |
-| `conversation-store/` | `FileConversationStore`: a workspace's conversations, a folder each with its stream, history and index    |
-| `output-store/`       | `FileOutputStore`: a conversation's complete command output, one private log file per command             |
-| `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time  |
-| `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it      |
-| `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door) |
-| `settings-file/`      | `SettingsFiles`: the text of the user's `settings.json`, global and per profile, edited by hand           |
-| `listing/`            | `FileProblem`: a stored file that was skipped and why, which a listing reports and does not hide          |
-| `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                        |
+| Module                | What it holds                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `json-file/`          | `readJsonFile` and `writeJsonFile`: a typed read, and an atomic, private write that works on Windows       |
+| `model-store/`        | `ModelStore`: a profile's models, one `<model-id>.json` each; a bad file is reported, the rest load        |
+| `credential-store/`   | `CredentialStore`: a profile's keys in one private file; never in an error, never read if open to others   |
+| `config-store/`       | `ConfigStore`: profile bindings and global terminal preferences; `workspaceKey` hashes a real path         |
+| `permission-store/`   | `PermissionStore`: what `run_command` may do in each workspace, a file each under `permissions/`           |
+| `conversation-store/` | `FileConversationStore`: a workspace's conversations, a folder each with its stream, history and index     |
+| `output-store/`       | `FileOutputStore`: a conversation's complete command output, one private log file per command              |
+| `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time   |
+| `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it       |
+| `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door)  |
+| `settings-file/`      | `SettingsFiles`: the text of the user's `settings.json`, global and per profile, edited by hand            |
+| `home/`               | `sheavlyHome`: the user's folder, `SHEAVLY_HOME` or `~/.sheavly`, from an environment                      |
+| `server-runtime/`     | `serverRuntimeDirectory`: the one private folder for the server's socket and file; `checkPrivateDirectory` |
+| `server-lock/`        | `acquireServerLock`: one server per home, a held socket; a crash is taken over, never a live holder        |
+| `discovery-file/`     | `server.json` (publish, safe read, remove) and `ServerPresence`: the lock and the file, warnings only      |
+| `listing/`            | `FileProblem`: a stored file that was skipped and why, which a listing reports and does not hide           |
+| `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                         |
 
 Internal (closed in `exports`): `safe-path/` (`namedPath`, `assertSafeRoot`, `removeFile` and
 `removeFolder`: every path a store makes, reads, writes or deletes is checked there), `serial-queue/`
